@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Cancel redundant runs on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Jobs overview
+#
+#  python-tests      — hook script logic tests (ubuntu, no Xcode needed)
+#  swift-model-tests — ApprovalRequest model tests via SPM (macOS)
+#  build-macos       — compile the Mac menu-bar app via xcodebuild (macOS)
+#  build-ios         — compile the iOS companion app via xcodebuild (macOS)
+#
+# All four jobs run in parallel.
+# ─────────────────────────────────────────────────────────────────────────────
+
+jobs:
+
+  # ── 1. Python hook script tests ────────────────────────────────────────────
+  python-tests:
+    name: "Python hook tests"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+      # Show a summary even on failure
+      - name: Test summary
+        if: always()
+        run: pytest tests/ --tb=no -q 2>&1 || true
+
+  # ── 2. Swift shared-model tests (SPM) ─────────────────────────────────────
+  swift-model-tests:
+    name: "Swift model tests"
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Run Swift tests
+        run: swift test --verbose
+
+  # ── 3. Build macOS app ─────────────────────────────────────────────────────
+  build-macos:
+    name: "Build macOS app"
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      # Cache xcodegen download
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-xcodegen-${{ runner.os }}-${{ hashFiles('project.yml') }}
+          restore-keys: brew-xcodegen-${{ runner.os }}-
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate --spec project.yml
+
+      - name: Build macOS target
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project ClaudeRemote.xcodeproj \
+            -scheme ClaudeRemote \
+            -destination "generic/platform=macOS" \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ENABLE_HARDENED_RUNTIME=NO \
+            2>&1 | tee /tmp/build-macos.log
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-macos-log
+          path: /tmp/build-macos.log
+
+  # ── 4. Build iOS app ───────────────────────────────────────────────────────
+  build-ios:
+    name: "Build iOS app"
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: brew-xcodegen-${{ runner.os }}-${{ hashFiles('project.yml') }}
+          restore-keys: brew-xcodegen-${{ runner.os }}-
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate --spec project.yml
+
+      - name: List available simulators
+        run: xcrun simctl list devices available --json | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          iphones = [
+              dev['name']
+              for devs in d['devices'].values()
+              for dev in devs
+              if 'iPhone' in dev.get('name', '') and dev.get('isAvailable')
+          ]
+          print('Available iPhones:', iphones[:5])
+          "
+
+      - name: Build iOS target (simulator)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project ClaudeRemote.xcodeproj \
+            -scheme ClaudeRemoteIOS \
+            -destination "generic/platform=iOS Simulator" \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee /tmp/build-ios.log
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-ios-log
+          path: /tmp/build-ios.log

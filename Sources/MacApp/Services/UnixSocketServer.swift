@@ -45,15 +45,18 @@ final class UnixSocketServer {
                           userInfo: [NSLocalizedDescriptionKey: "socket() failed: \(errno)"])
         }
 
-        // Bind
+        // Bind — copy path into sun_path, then bind using a pointer to the whole struct
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
-        let bindResult: Int32 = withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
-            ptr.withMemoryRebound(to: CChar.self, capacity: 104) { cstr in
-                path.withCString { strncpy(cstr, $0, 103) }
-                return Foundation.bind(serverFD,
-                                       UnsafeRawPointer(ptr).assumingMemoryBound(to: sockaddr.self),
-                                       socklen_t(MemoryLayout<sockaddr_un>.size))
+        withUnsafeMutablePointer(to: &addr.sun_path) { sunPathPtr in
+            sunPathPtr.withMemoryRebound(to: CChar.self,
+                                         capacity: MemoryLayout.size(ofValue: addr.sun_path)) { cStr in
+                _ = path.withCString { strncpy(cStr, $0, MemoryLayout.size(ofValue: addr.sun_path) - 1) }
+            }
+        }
+        let bindResult = withUnsafePointer(to: &addr) { addrPtr in
+            addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(serverFD, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
         guard bindResult == 0 else {

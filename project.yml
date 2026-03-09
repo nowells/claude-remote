@@ -1,0 +1,111 @@
+name: ClaudeRemote
+
+# ─────────────────────────────────────────────────────────────────────────────
+# xcodegen project spec
+# Generate with: xcodegen generate
+# Install xcodegen: brew install xcodegen
+# ─────────────────────────────────────────────────────────────────────────────
+
+options:
+  bundleIdPrefix: com.example
+  xcodeVersion: "16"
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "13.0"
+    iOS: "16.0"
+
+# ── Mac App ───────────────────────────────────────────────────────────────────
+targets:
+  ClaudeRemote:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+
+    sources:
+      - path: Sources/Shared
+        excludes: ["**/*.plist", "**/*.entitlements"]
+      - path: Sources/MacApp
+        excludes: ["**/*.plist", "**/*.entitlements"]
+
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.clauderemote
+        PRODUCT_NAME: ClaudeRemote
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+        # Info.plist — generated; extra keys added here
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_NSUserNotificationsUsageDescription: "ClaudeRemote shows notifications for Claude Code permission requests."
+
+        # Signing — disabled for CI; re-enable for personal use
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        ENABLE_HARDENED_RUNTIME: NO
+
+        # System frameworks (auto-linked via import, but explicit for clarity)
+        OTHER_LDFLAGS: "-framework IOKit -framework CoreGraphics"
+
+        DEBUG_INFORMATION_FORMAT: dwarf
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Note: To enable iCloud/CloudKit in a personal build, re-enable signing and
+    # add the CloudKit capability in Xcode's "Signing & Capabilities" tab.
+    # Do NOT commit a signed entitlements file with a real Team ID to source control.
+    # ──────────────────────────────────────────────────────────────────────────
+
+  # ── iOS App ─────────────────────────────────────────────────────────────────
+  ClaudeRemoteIOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+
+    sources:
+      - path: Sources/Shared
+        excludes: ["**/*.plist", "**/*.entitlements"]
+      - path: Sources/iOSApp
+        excludes: ["**/*.plist", "**/*.entitlements"]
+
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.clauderemoteios
+        PRODUCT_NAME: ClaudeRemote
+        SWIFT_VERSION: "5.9"
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSUserNotificationsUsageDescription: "ClaudeRemote uses notifications to let you approve or deny Claude Code permission requests."
+        # UIBackgroundModes must be set in the raw Info.plist; GENERATE_INFOPLIST_FILE
+        # doesn't support it as a simple key. A build phase copies Sources/iOSApp/Info.plist
+        # over the generated one via INFOPLIST_FILE instead:
+
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+
+        DEBUG_INFORMATION_FORMAT: dwarf
+
+# ── Schemes ───────────────────────────────────────────────────────────────────
+schemes:
+  ClaudeRemote:
+    build:
+      targets:
+        ClaudeRemote: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+
+  ClaudeRemoteIOS:
+    build:
+      targets:
+        ClaudeRemoteIOS: all
+    run:
+      config: Debug
+    archive:
+      config: Release
