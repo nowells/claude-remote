@@ -47,6 +47,7 @@ final class UnixSocketServer {
 
         // Bind — copy path into sun_path, then bind using a pointer to the whole struct
         var addr = sockaddr_un()
+        addr.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
         addr.sun_family = sa_family_t(AF_UNIX)
         let sunPathSize = MemoryLayout.size(ofValue: addr.sun_path)
         withUnsafeMutablePointer(to: &addr.sun_path) { sunPathPtr in
