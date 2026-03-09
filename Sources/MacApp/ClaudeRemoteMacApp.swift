@@ -34,7 +34,7 @@ private struct MenuBarLabel: View {
                   ? "checkmark.shield"
                   : "exclamationmark.shield.fill")
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(coordinator.activeRequests.isEmpty ? .primary : .orange)
+                .foregroundStyle(coordinator.activeRequests.isEmpty ? Color.primary : Color.orange)
             if !coordinator.activeRequests.isEmpty {
                 Text("\(coordinator.activeRequests.count)")
                     .font(.caption2.monospacedDigit())

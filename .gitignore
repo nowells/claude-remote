@@ -3,12 +3,17 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Xcode / generated project (users generate this locally with `xcodegen generate`)
-*.xcodeproj/
-*.xcworkspace/
+# Xcode — user-specific state (NOT the project itself, which is committed)
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+
+# Build artefacts
 DerivedData/
 build/
-*.xcuserstate
+*.ipa
+*.dSYM.zip
+*.dSYM
 
 # macOS
 .DS_Store

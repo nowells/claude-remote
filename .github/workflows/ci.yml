@@ -18,7 +18,8 @@ concurrency:
 #  build-macos       — compile the Mac menu-bar app via xcodebuild (macOS)
 #  build-ios         — compile the iOS companion app via xcodebuild (macOS)
 #
-# All four jobs run in parallel.
+# The Xcode project (ClaudeRemote.xcodeproj) is committed to the repo, so
+# xcodegen is not needed in CI.  All four jobs run in parallel.
 # ─────────────────────────────────────────────────────────────────────────────
 
 jobs:
@@ -40,11 +41,6 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v --tb=short
-
-      # Show a summary even on failure
-      - name: Test summary
-        if: always()
-        run: pytest tests/ --tb=no -q 2>&1 || true
 
   # ── 2. Swift shared-model tests (SPM) ─────────────────────────────────────
   swift-model-tests:
@@ -73,19 +69,6 @@ jobs:
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
-
-      # Cache xcodegen download
-      - uses: actions/cache@v4
-        with:
-          path: ~/Library/Caches/Homebrew
-          key: brew-xcodegen-${{ runner.os }}-${{ hashFiles('project.yml') }}
-          restore-keys: brew-xcodegen-${{ runner.os }}-
-
-      - name: Install xcodegen
-        run: brew install xcodegen
-
-      - name: Generate Xcode project
-        run: xcodegen generate --spec project.yml
 
       - name: Build macOS target
         run: |
@@ -118,31 +101,6 @@ jobs:
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/Library/Caches/Homebrew
-          key: brew-xcodegen-${{ runner.os }}-${{ hashFiles('project.yml') }}
-          restore-keys: brew-xcodegen-${{ runner.os }}-
-
-      - name: Install xcodegen
-        run: brew install xcodegen
-
-      - name: Generate Xcode project
-        run: xcodegen generate --spec project.yml
-
-      - name: List available simulators
-        run: xcrun simctl list devices available --json | python3 -c "
-          import json, sys
-          d = json.load(sys.stdin)
-          iphones = [
-              dev['name']
-              for devs in d['devices'].values()
-              for dev in devs
-              if 'iPhone' in dev.get('name', '') and dev.get('isAvailable')
-          ]
-          print('Available iPhones:', iphones[:5])
-          "
 
       - name: Build iOS target (simulator)
         run: |
