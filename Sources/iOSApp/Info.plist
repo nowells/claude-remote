@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- REQUIRED: allows the app to wake in the background when CloudKit
+         delivers a silent push so we can fetch new requests and post a
+         local notification with Approve/Deny action buttons. -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>remote-notification</string>
+    </array>
+
+    <!-- Privacy descriptions -->
+    <key>NSUserNotificationsUsageDescription</key>
+    <string>ClaudeRemote uses notifications to let you approve or deny Claude Code permission requests from your iPhone and Apple Watch.</string>
+</dict>
+</plist>

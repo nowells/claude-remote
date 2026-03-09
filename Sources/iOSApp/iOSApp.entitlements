@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- iCloud / CloudKit -->
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+        <string>CloudKit</string>
+    </array>
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+        <!-- Replace with your actual container ID (must match Mac app) -->
+        <string>iCloud.com.yourname.clauderemote</string>
+    </array>
+
+    <!-- Push Notifications (required for CloudKit subscriptions to work) -->
+    <key>aps-environment</key>
+    <string>development</string>
+    <!-- Change to "production" for App Store / TestFlight builds -->
+
+    <!--
+        Background Modes declared in Info.plist:
+          remote-notification  — wake app when CloudKit silent push arrives
+        (set UIBackgroundModes in Info.plist, not here)
+    -->
+</dict>
+</plist>
