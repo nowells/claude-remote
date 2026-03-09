@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Xcode / generated project (users generate this locally with `xcodegen generate`)
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+build/
+*.xcuserstate
+
+# macOS
+.DS_Store
