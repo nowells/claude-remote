@@ -97,7 +97,7 @@ final class ApprovalCoordinator: ObservableObject {
     private func showLocalDialog(for request: ApprovalRequest) async -> String {
         return await withCheckedContinuation { continuation in
             Task.detached(priority: .userInitiated) {
-                let result = Self.runDialog(for: request)
+                let result = await Self.runDialog(for: request)
                 continuation.resume(returning: result)
             }
         }
