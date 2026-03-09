@@ -36,14 +36,33 @@ final class UnixSocketServer {
 
         let path = Config.socketPath
 
+        // Ensure parent directory exists
+        let parentDir = (path as NSString).deletingLastPathComponent
+        if !FileManager.default.fileExists(atPath: parentDir) {
+            try FileManager.default.createDirectory(atPath: parentDir, 
+                                                     withIntermediateDirectories: true)
+        }
+
         // Clean up any leftover socket file
-        unlink(path)
+        // Use FileManager to ensure proper cleanup
+        if FileManager.default.fileExists(atPath: path) {
+            do {
+                try FileManager.default.removeItem(atPath: path)
+            } catch {
+                // If removal fails, try with unlink as fallback
+                unlink(path)
+            }
+        }
 
         serverFD = socket(AF_UNIX, SOCK_STREAM, 0)
         guard serverFD >= 0 else {
             throw NSError(domain: "UnixSocket", code: Int(errno),
                           userInfo: [NSLocalizedDescriptionKey: "socket() failed: \(errno)"])
         }
+        
+        // Set socket option to allow reuse
+        var reuseAddr: Int32 = 1
+        setsockopt(serverFD, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, socklen_t(MemoryLayout<Int32>.size))
 
         // Bind — copy path into sun_path, then bind using a pointer to the whole struct
         var addr = sockaddr_un()
@@ -61,8 +80,22 @@ final class UnixSocketServer {
             }
         }
         guard bindResult == 0 else {
-            throw NSError(domain: "UnixSocket", code: Int(errno),
-                          userInfo: [NSLocalizedDescriptionKey: "bind() failed: \(errno)"])
+            let errorCode = errno
+            close(serverFD)
+            serverFD = -1
+            let errorMsg: String
+            switch errorCode {
+            case EACCES:
+                errorMsg = "Permission denied. Socket path: \(path)"
+            case EADDRINUSE:
+                errorMsg = "Address already in use. Socket path: \(path)"
+            case ENOENT:
+                errorMsg = "Parent directory does not exist. Socket path: \(path)"
+            default:
+                errorMsg = "bind() failed with errno \(errorCode). Socket path: \(path)"
+            }
+            throw NSError(domain: "UnixSocket", code: Int(errorCode),
+                          userInfo: [NSLocalizedDescriptionKey: errorMsg])
         }
 
         guard listen(serverFD, 16) == 0 else {

@@ -8,7 +8,10 @@ enum Config {
     static let cloudKitContainerID = "iCloud.com.claude-remote.app"
 
     /// Unix socket path for IPC between the Python hook script and this Mac app.
-    static let socketPath = "/tmp/claude-remote.sock"
+    static let socketPath = {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        return homeDir.appendingPathComponent(".claude-remote.sock").path
+    }()
 
     /// Seconds of user inactivity before the Mac is considered "away".
     static let idleThresholdSeconds: TimeInterval = 60
