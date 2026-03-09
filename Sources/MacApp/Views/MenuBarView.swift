@@ -49,11 +49,19 @@ struct MenuBarView: View {
 
             // ── Footer Buttons ───────────────────────────────────────
             HStack {
-                SettingsLink {
-                    Text("Settings")
+                if #available(macOS 14.0, *) {
+                    SettingsLink {
+                        Text("Settings")
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                } else {
+                    Button("Settings") {
+                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
                 }
-                .buttonStyle(.plain)
-                .font(.caption)
 
                 Spacer()
 

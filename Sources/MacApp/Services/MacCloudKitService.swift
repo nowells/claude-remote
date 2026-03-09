@@ -67,7 +67,7 @@ final class MacCloudKitService {
 
         guard let (results, _) = try? await db.records(matching: query) else { return }
         for (recordID, _) in results {
-            try? await db.deleteRecord(withID: recordID)
+            _ = try? await db.deleteRecord(withID: recordID)
         }
     }
 }

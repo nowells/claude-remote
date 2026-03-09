@@ -16,7 +16,7 @@ final class MacNotificationService: NSObject {
     // MARK: - Authorization
 
     func requestAuthorization() async {
-        try? await UNUserNotificationCenter.current()
+        _ = try? await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound])
     }
 

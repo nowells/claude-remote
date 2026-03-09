@@ -131,21 +131,21 @@ final class UnixSocketServer {
 
         // Wait up to remoteResponseTimeoutSeconds + 10s buffer
         let deadline = DispatchTime.now() + Config.remoteResponseTimeoutSeconds + 10
-        semaphore.wait(timeout: deadline)
+        let waitResult = semaphore.wait(timeout: deadline)
 
-        if var data = responseData {
+        if waitResult == .timedOut || responseData == nil {
+            sendError(fd: fd, message: "timeout")
+        } else if var data = responseData {
             if data.last != 0x0a { data.append(0x0a) }
             data.withUnsafeBytes { ptr in
                 _ = write(fd, ptr.baseAddress, ptr.count)
             }
-        } else {
-            sendError(fd: fd, message: "timeout")
         }
     }
 
     private func sendError(fd: Int32, message: String) {
         let payload = #"{"error":"\#(message)"}"# + "\n"
-        payload.withCString { write(fd, $0, strlen($0)) }
+        _ = payload.withCString { write(fd, $0, strlen($0)) }
     }
 
     // MARK: - Teardown
