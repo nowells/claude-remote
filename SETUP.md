@@ -21,10 +21,10 @@ This guide walks you through building and connecting the Mac and iOS apps.
 1. Sign in to [developer.apple.com](https://developer.apple.com) → **Certificates, IDs & Profiles**
 2. Select **Identifiers** → **+** → **iCloud Containers**
 3. Description: `ClaudeRemote`
-4. Identifier: `iCloud.com.yourname.clauderemote`  (use your actual reverse-domain)
+4. Identifier: `iCloud.com.claude-remote.app`  (use your actual reverse-domain)
 5. **Continue → Register**
 
-> **Important:** Replace every occurrence of `iCloud.com.yourname.clauderemote` in:
+> **Important:** Replace every occurrence of `iCloud.com.claude-remote.app` in:
 > - `Sources/MacApp/Config.swift`
 > - `Sources/MacApp/MacApp.entitlements`
 > - `Sources/iOSApp/iOSApp.entitlements`
@@ -36,7 +36,7 @@ This guide walks you through building and connecting the Mac and iOS apps.
 1. Open Xcode → **File → New → Project**
 2. Choose **macOS → App** → Next
 3. Product Name: `ClaudeRemote`
-4. Bundle Identifier: `com.yourname.clauderemote`
+4. Bundle Identifier: `com.claude-remote.app`
 5. Language: Swift, Interface: SwiftUI
 6. **Create**
 
@@ -81,7 +81,7 @@ Sources/iOSApp/Views/ApprovalDetailView.swift
 1. Select the macOS target → **Signing & Capabilities**
 2. Team: your Apple ID
 3. **+ Capability → iCloud** → check **CloudKit**
-4. Under CloudKit Containers: add `iCloud.com.yourname.clauderemote`
+4. Under CloudKit Containers: add `iCloud.com.claude-remote.app`
 5. **+ Capability → App Sandbox** (required for notarisation)
    - Check **Network: Outgoing Connections (Client)**
    - Check **Apple Events** (needed for osascript dialogs)
@@ -94,7 +94,7 @@ Sources/iOSApp/Views/ApprovalDetailView.swift
 1. Select the iOS target → **Signing & Capabilities**
 2. Team: same Apple ID
 3. **+ Capability → iCloud** → check **CloudKit**
-4. Under CloudKit Containers: add `iCloud.com.yourname.clauderemote`
+4. Under CloudKit Containers: add `iCloud.com.claude-remote.app`
 5. **+ Capability → Push Notifications**
 6. **+ Capability → Background Modes** → check **Remote notifications**
 7. Assign `Sources/iOSApp/iOSApp.entitlements` as the entitlements file

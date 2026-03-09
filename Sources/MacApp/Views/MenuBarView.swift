@@ -49,9 +49,8 @@ struct MenuBarView: View {
 
             // ── Footer Buttons ───────────────────────────────────────
             HStack {
-                Button("Settings") {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                    NSApp.activate(ignoringOtherApps: true)
+                SettingsLink {
+                    Text("Settings")
                 }
                 .buttonStyle(.plain)
                 .font(.caption)

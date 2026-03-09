@@ -4,8 +4,8 @@ import Foundation
 enum Config {
     /// Your iCloud container identifier.
     /// Create it at developer.apple.com → Certificates, IDs & Profiles → Identifiers → iCloud Containers.
-    /// Format: "iCloud.<your-bundle-id>"  e.g. "iCloud.com.yourname.clauderemote"
-    static let cloudKitContainerID = "iCloud.com.yourname.clauderemote"
+    /// Format: "iCloud.<your-bundle-id>"  e.g. "iCloud.com.claude-remote.app"
+    static let cloudKitContainerID = "iCloud.com.claude-remote.app"
 
     /// Unix socket path for IPC between the Python hook script and this Mac app.
     static let socketPath = "/tmp/claude-remote.sock"

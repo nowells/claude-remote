@@ -48,10 +48,10 @@ final class UnixSocketServer {
         // Bind — copy path into sun_path, then bind using a pointer to the whole struct
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
+        let sunPathSize = MemoryLayout.size(ofValue: addr.sun_path)
         withUnsafeMutablePointer(to: &addr.sun_path) { sunPathPtr in
-            sunPathPtr.withMemoryRebound(to: CChar.self,
-                                         capacity: MemoryLayout.size(ofValue: addr.sun_path)) { cStr in
-                _ = path.withCString { strncpy(cStr, $0, MemoryLayout.size(ofValue: addr.sun_path) - 1) }
+            sunPathPtr.withMemoryRebound(to: CChar.self, capacity: sunPathSize) { cStr in
+                _ = path.withCString { strncpy(cStr, $0, sunPathSize - 1) }
             }
         }
         let bindResult = withUnsafePointer(to: &addr) { addrPtr in

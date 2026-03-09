@@ -29,7 +29,7 @@ targets:
 
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.clauderemote
+        PRODUCT_BUNDLE_IDENTIFIER: com.claude-remote.app
         PRODUCT_NAME: ClaudeRemote
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "13.0"
@@ -71,7 +71,7 @@ targets:
 
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.clauderemoteios
+        PRODUCT_BUNDLE_IDENTIFIER: com.claude-remote.appios
         PRODUCT_NAME: ClaudeRemote
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "16.0"

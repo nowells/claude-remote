@@ -10,7 +10,7 @@
     <key>com.apple.developer.icloud-container-identifiers</key>
     <array>
         <!-- Replace with your actual container ID -->
-        <string>iCloud.com.yourname.clauderemote</string>
+        <string>iCloud.com.claude-remote.app</string>
     </array>
 
     <!-- App Sandbox (required for notarisation) -->
