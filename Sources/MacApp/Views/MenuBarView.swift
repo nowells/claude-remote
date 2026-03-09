@@ -160,22 +160,23 @@ struct SettingsView: View {
 
             Section("Status") {
                 LabeledContent("Socket") {
-                    Text(Config.socketPath)
-                        .font(.caption.monospaced())
-                        .textSelection(.enabled)
-                }
-                LabeledContent("CloudKit container") {
-                    Text(Config.cloudKitContainerID)
-                        .font(.caption.monospaced())
-                        .textSelection(.enabled)
-                }
-                LabeledContent("Connection") {
                     HStack(spacing: 4) {
                         Circle()
                             .fill(coordinator.isConnected ? Color.green : Color.red)
                             .frame(width: 8, height: 8)
-                        Text(coordinator.isConnected ? "Active" : "Offline")
-                            .font(.caption)
+                        Text(Config.socketPath)
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                    }
+                }
+                LabeledContent("CloudKit") {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(coordinator.cloudKitAvailable ? Color.green : Color.red)
+                            .frame(width: 8, height: 8)
+                        Text(Config.cloudKitContainerID)
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
                     }
                 }
             }

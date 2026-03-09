@@ -10,10 +10,22 @@ final class MacCloudKitService {
 
     static let shared = MacCloudKitService()
 
-    private var container: CKContainer { CKContainer(identifier: Config.cloudKitContainerID) }
+    private let container = CKContainer(identifier: Config.cloudKitContainerID)
     private var db: CKDatabase { container.privateCloudDatabase }
 
     private init() {}
+
+    // MARK: - Account Status
+
+    /// Returns true when the device has an iCloud account and CloudKit is reachable.
+    func checkAccountStatus() async -> Bool {
+        do {
+            let status = try await container.accountStatus()
+            return status == .available
+        } catch {
+            return false
+        }
+    }
 
     // MARK: - Publish Request
 

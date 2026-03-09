@@ -14,6 +14,7 @@ final class ApprovalCoordinator: ObservableObject {
     @Published var activeRequests: [ApprovalRequest] = []
     @Published var statusMessage: String = "Idle"
     @Published var isConnected: Bool = false
+    @Published var cloudKitAvailable: Bool = false
 
     // MARK: - Services
 
@@ -45,6 +46,8 @@ final class ApprovalCoordinator: ObservableObject {
         } catch {
             statusMessage = "Socket error: \(error.localizedDescription)"
         }
+
+        cloudKitAvailable = await cloudKit.checkAccountStatus()
     }
 
     // MARK: - Core Handler

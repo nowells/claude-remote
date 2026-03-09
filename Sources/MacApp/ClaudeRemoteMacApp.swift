@@ -30,11 +30,27 @@ private struct MenuBarLabel: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            Image(systemName: coordinator.activeRequests.isEmpty
-                  ? "checkmark.shield"
-                  : "exclamationmark.shield.fill")
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(coordinator.activeRequests.isEmpty ? Color.primary : Color.orange)
+            Group {
+                if let appIcon = NSImage(named: "AppIcon") {
+                    // Configure as template image to adapt to menu bar appearance
+                    let templateIcon = appIcon.copy() as! NSImage
+                    let _ = { templateIcon.isTemplate = true }()
+                    
+                    Image(nsImage: templateIcon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 18, height: 18)
+                        .foregroundStyle(coordinator.activeRequests.isEmpty ? Color.primary : Color.orange)
+                } else {
+                    // Fallback to SF Symbol if AppIcon not found
+                    Image(systemName: coordinator.activeRequests.isEmpty
+                          ? "checkmark.shield"
+                          : "exclamationmark.shield.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(coordinator.activeRequests.isEmpty ? Color.primary : Color.orange)
+                }
+            }
+            
             if !coordinator.activeRequests.isEmpty {
                 Text("\(coordinator.activeRequests.count)")
                     .font(.caption2.monospacedDigit())
