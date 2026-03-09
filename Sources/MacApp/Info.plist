@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hide the Dock icon — this is a menu-bar-only app -->
+    <key>LSUIElement</key>
+    <true/>
+
+    <!-- Privacy description for notifications -->
+    <key>NSUserNotificationUsageDescription</key>
+    <string>ClaudeRemote shows notifications for Claude Code permission requests.</string>
+</dict>
+</plist>
