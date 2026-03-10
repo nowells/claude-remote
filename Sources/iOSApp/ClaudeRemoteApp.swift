@@ -31,7 +31,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // Request permission and register for remote notifications
         // (required for CloudKit subscriptions to deliver silent pushes)
         Task {
-            await iOSNotificationService.shared.requestAuthorization()
+            let _ = await iOSNotificationService.shared.requestAuthorization()
             application.registerForRemoteNotifications()
         }
 

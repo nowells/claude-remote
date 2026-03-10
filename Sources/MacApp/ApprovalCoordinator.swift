@@ -178,6 +178,7 @@ final class ApprovalCoordinator: ObservableObject {
                 alert.messageText = "Claude Code Permission Request"
                 alert.informativeText = "Tool: \(request.toolName)\n\n\(request.notificationBody)"
                 alert.alertStyle = .warning
+                alert.icon = NSApp.applicationIconImage
                 alert.addButton(withTitle: "Approve")
                 alert.addButton(withTitle: "Deny")
 
