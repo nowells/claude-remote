@@ -43,21 +43,25 @@ def get_socket_path():
 TIMEOUT = 310  # Slightly longer than remoteResponseTimeoutSeconds
 
 def request_approval(tool_name, tool_input):
-    """Connect to Mac app and request approval."""
+    """Connect to Mac app and request approval.
+
+    Returns True/False for allow/deny.
+    Raises FileNotFoundError if the Mac app is not running.
+    """
+    socket_path = get_socket_path()  # raises FileNotFoundError if app not running
+
     try:
-        socket_path = get_socket_path()
-        
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(TIMEOUT)
         sock.connect(socket_path)
-        
+
         # Send request
         request = {
             "tool_name": tool_name,
             "tool_input": json.dumps(tool_input)
         }
         sock.sendall((json.dumps(request) + "\n").encode('utf-8'))
-        
+
         # Read response
         response_data = b""
         while True:
@@ -67,23 +71,20 @@ def request_approval(tool_name, tool_input):
             response_data += chunk
             if b"\n" in chunk:
                 break
-        
+
         sock.close()
-        
+
         # Parse response
         response = json.loads(response_data.decode('utf-8'))
-        
+
         if "error" in response:
             print(f"Error from approval service: {response['error']}", file=sys.stderr)
             return False
-        
+
         return response.get("decision") == "allow"
-        
+
     except socket.timeout:
         print("Approval request timed out", file=sys.stderr)
-        return False
-    except FileNotFoundError as e:
-        print(str(e), file=sys.stderr)
         return False
     except Exception as e:
         print(f"Approval request failed: {e}", file=sys.stderr)
@@ -99,7 +100,11 @@ if __name__ == "__main__":
         tool_input = tool_call.get("tool_input", {})
 
         # Request approval
-        approved = request_approval(tool_name, tool_input)
+        try:
+            approved = request_approval(tool_name, tool_input)
+        except FileNotFoundError:
+            # App not running — opt out and let Claude's default permission system decide
+            sys.exit(0)
 
         # Return PermissionRequest decision as JSON
         result = {
