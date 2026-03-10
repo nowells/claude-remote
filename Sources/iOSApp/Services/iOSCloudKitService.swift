@@ -56,7 +56,7 @@ final class iOSCloudKitService: ObservableObject {
             return  // Already set up
         } catch { }
 
-        let predicate = NSPredicate(format: "status == %@", "pending")
+        let predicate = NSPredicate(value: true)  // match all — status filtered in memory
         let subscription = CKQuerySubscription(
             recordType: ApprovalRequest.recordType,
             predicate: predicate,
@@ -79,48 +79,32 @@ final class iOSCloudKitService: ObservableObject {
 
     /// Fetch all pending records created in the last hour that haven't been shown yet.
     func fetchNewPendingRequests() async -> [ApprovalRequest] {
-        let oneHourAgo = Date().addingTimeInterval(-3600)
-        let predicate = NSPredicate(
-            format: "status == %@ AND createdAt >= %@",
-            "pending", oneHourAgo as CVarArg
-        )
-        let query = CKQuery(recordType: ApprovalRequest.recordType, predicate: predicate)
-        query.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: true)]
-
-        guard let (results, _) = try? await db.records(matching: query) else { return [] }
-
-        let requests = results.compactMap { (_, result) -> ApprovalRequest? in
-            guard let record = try? result.get() else { return nil }
-            return ApprovalRequest(cloudKitRecord: record)
-        }
-
-        // Filter out ones already notified
+        let requests = await fetchAllPending()
         let known = notifiedIDs
         let newRequests = requests.filter { !known.contains($0.id) }
-
-        // Mark them as notified
         if !newRequests.isEmpty {
             notifiedIDs = known.union(newRequests.map(\.id))
         }
-
         return newRequests
     }
 
     /// Fetch all pending requests (for display in the app UI).
+    /// Uses only the system `creationDate` field in the predicate (always queryable without
+    /// custom indexes), then filters by status in memory.
     func fetchAllPending() async -> [ApprovalRequest] {
         let oneHourAgo = Date().addingTimeInterval(-3600)
-        let predicate = NSPredicate(
-            format: "status == %@ AND createdAt >= %@",
-            "pending", oneHourAgo as CVarArg
-        )
+        // `creationDate` is a CloudKit system field — no custom index needed.
+        let predicate = NSPredicate(format: "creationDate >= %@", oneHourAgo as CVarArg)
         let query = CKQuery(recordType: ApprovalRequest.recordType, predicate: predicate)
-        query.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+        query.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
 
         guard let (results, _) = try? await db.records(matching: query) else { return [] }
-        return results.compactMap { (_, result) -> ApprovalRequest? in
-            guard let record = try? result.get() else { return nil }
-            return ApprovalRequest(cloudKitRecord: record)
-        }
+        return results
+            .compactMap { (_, result) -> ApprovalRequest? in
+                guard let record = try? result.get() else { return nil }
+                return ApprovalRequest(cloudKitRecord: record)
+            }
+            .filter { $0.status == .pending }
     }
 
     // MARK: - Respond

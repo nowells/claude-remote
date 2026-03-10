@@ -1,7 +1,10 @@
 import AppKit
 import Foundation
+import OSLog
 import SwiftUI
 import UserNotifications
+
+private let log = Logger(subsystem: "com.claude-remote.app", category: "ApprovalCoordinator")
 
 /// Central coordinator for the Mac app.
 /// Receives approval requests from the Unix socket server, decides whether to
@@ -69,11 +72,14 @@ final class ApprovalCoordinator: ObservableObject {
 
         let idleSeconds = presence.idleTimeSeconds()
         let atDesk = presence.isAtDesk()
+        log.info("handle: tool=\(request.toolName) idle=\(idleSeconds, format: .fixed(precision: 1))s atDesk=\(atDesk)")
 
         if atDesk {
             // ── Local path: show native dialog (blocks until user responds or times out) ──
             await MainActor.run { statusMessage = "Local dialog shown (idle \(Int(idleSeconds))s)" }
+            log.info("handle: showing local dialog")
             let result = await showLocalDialog(for: request)
+            log.info("handle: local dialog result=\(result)")
             switch result {
             case "approve": return .init(id: request.id, decision: "allow")
             case "deny":    return .init(id: request.id, decision: "deny")
@@ -84,16 +90,20 @@ final class ApprovalCoordinator: ObservableObject {
         }
 
         // ── Remote path: publish to CloudKit, poll until iOS responds ──
+        log.info("handle: entering remote path")
         do {
             try await cloudKit.publishRequest(request)
+            log.info("handle: published to CloudKit, polling…")
             await MainActor.run { statusMessage = "Waiting for iPhone response…" }
             let responded = try await cloudKit.pollForResponse(
                 requestID: request.id,
                 timeout: Config.remoteResponseTimeoutSeconds
             )
             let decision = responded.status == .approved ? "allow" : "deny"
+            log.info("handle: iOS responded decision=\(decision)")
             return .init(id: request.id, decision: decision)
         } catch {
+            log.error("handle: CloudKit error — \(error)")
             await MainActor.run { statusMessage = "CloudKit error: \(error.localizedDescription)" }
             // Timeout or CloudKit error → deny by default to avoid silent auto-approval
             return .init(id: request.id, decision: "deny")

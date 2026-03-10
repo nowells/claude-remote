@@ -10,6 +10,10 @@ final class iOSApprovalStore: ObservableObject {
 
     private let cloudKit = iOSCloudKitService.shared
     private let notifications = iOSNotificationService.shared
+    private var pollTimer: Timer?
+
+    /// Polling interval — short enough to feel responsive, long enough to not hammer CloudKit.
+    private static let pollInterval: TimeInterval = 5
 
     init() {
         Task { await refresh() }
@@ -19,6 +23,13 @@ final class iOSApprovalStore: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            Task { await self?.refresh() }
+        }
+        startPolling()
+    }
+
+    private func startPolling() {
+        pollTimer = Timer.scheduledTimer(withTimeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
             Task { await self?.refresh() }
         }
     }
