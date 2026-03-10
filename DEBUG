@@ -1,0 +1,1 @@
+echo '{"session_id":"test","hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm -rf temp"}}' | /Users/nstrite/.claude-remote/approval_hook.py

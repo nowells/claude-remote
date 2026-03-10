@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 import UserNotifications
@@ -95,64 +96,28 @@ final class ApprovalCoordinator: ObservableObject {
         }
     }
 
-    // MARK: - Local dialog via osascript
+    // MARK: - Local dialog
 
+    @MainActor
     private func showLocalDialog(for request: ApprovalRequest) async -> String {
-        return await withCheckedContinuation { continuation in
-            Task.detached(priority: .userInitiated) {
-                let result = await Self.runDialog(for: request)
-                continuation.resume(returning: result)
-            }
+        let alert = NSAlert()
+        alert.messageText = "Claude Code Permission Request"
+        alert.informativeText = "Tool: \(request.toolName)\n\n\(request.notificationBody)"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Approve")
+        alert.addButton(withTitle: "Deny")
+
+        NSApp.activate(ignoringOtherApps: true)
+
+        let timer = Timer.scheduledTimer(withTimeInterval: Config.localDialogTimeoutSeconds, repeats: false) { _ in
+            NSApp.stopModal(withCode: .cancel)
         }
-    }
+        defer { timer.invalidate() }
 
-    private static func runDialog(for request: ApprovalRequest) -> String {
-        // Escape text for AppleScript string literals
-        func esc(_ s: String) -> String {
-            s.replacingOccurrences(of: "\\", with: "\\\\")
-             .replacingOccurrences(of: "\"", with: "\\\"")
-        }
-
-        let detail = esc(request.notificationBody)
-        let toolName = esc(request.toolName)
-        let timeout = Int(Config.localDialogTimeoutSeconds)
-
-        let script = """
-        try
-            set dlg to (display alert "Claude Code Permission Request" ¬
-                message "Tool: \(toolName)\\n\\n\(detail)" ¬
-                as warning ¬
-                buttons {"Deny", "Approve"} ¬
-                default button "Approve" ¬
-                giving up after \(timeout))
-            if gave up of dlg is true then
-                return "timeout"
-            else if button returned of dlg is "Approve" then
-                return "approve"
-            else
-                return "deny"
-            end if
-        on error
-            return "timeout"
-        end try
-        """
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()  // suppress osascript errors
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            return output.isEmpty ? "timeout" : output
-        } catch {
-            return "timeout"
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: return "approve"
+        case .alertSecondButtonReturn: return "deny"
+        default: return "timeout"
         }
     }
 }

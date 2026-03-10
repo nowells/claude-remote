@@ -7,36 +7,37 @@ import sys
 import json
 import socket
 import os
-import pwd
 
 def get_socket_path():
     """Discover the socket path from the Mac app."""
-    username = pwd.getpwuid(os.getuid()).pw_name
-    
-    # Try the discovery file first
-    discovery_file = f"/tmp/claude-remote-{username}.path"
-    if os.path.exists(discovery_file):
-        try:
-            with open(discovery_file, 'r') as f:
-                path = f.read().strip()
-                if os.path.exists(path):
-                    return path
-        except Exception as e:
-            print(f"Warning: Could not read socket path file: {e}", file=sys.stderr)
-    
-    # Fall back to the default location
-    default_path = f"/tmp/claude-remote-{username}.sock"
-    if os.path.exists(default_path):
-        return default_path
-    
-    # Last resort: check old location for backward compatibility
-    old_path = os.path.expanduser("~/.claude-remote.sock")
-    if os.path.exists(old_path):
-        return old_path
-    
+    home = os.path.expanduser("~")
+    # Sandboxed apps write to their container, not the real home directory
+    container_home = os.path.join(home, "Library", "Containers", "com.claude-remote.app", "Data")
+
+    search_dirs = [home, container_home]
+
+    # Try discovery files first
+    for base_dir in search_dirs:
+        discovery_file = os.path.join(base_dir, ".claude-remote.path")
+        if os.path.exists(discovery_file):
+            try:
+                with open(discovery_file, 'r') as f:
+                    path = f.read().strip()
+                    if os.path.exists(path):
+                        return path
+            except Exception as e:
+                print(f"Warning: Could not read {discovery_file}: {e}", file=sys.stderr)
+
+    # Fall back to direct socket paths
+    for base_dir in search_dirs:
+        sock_path = os.path.join(base_dir, ".claude-remote.sock")
+        if os.path.exists(sock_path):
+            return sock_path
+
+    checked = [os.path.join(d, f) for d in search_dirs for f in [".claude-remote.path", ".claude-remote.sock"]]
     raise FileNotFoundError(
         f"Claude Remote app not running. Socket not found.\n"
-        f"Checked: {discovery_file}, {default_path}, {old_path}"
+        f"Checked: {', '.join(checked)}"
     )
 
 TIMEOUT = 310  # Slightly longer than remoteResponseTimeoutSeconds
@@ -89,20 +90,29 @@ def request_approval(tool_name, tool_input):
         return False
 
 if __name__ == "__main__":
-    # Read MCP tool call from stdin
+    # Read PermissionRequest hook input from stdin
     input_data = sys.stdin.read()
-    
+
     try:
         tool_call = json.loads(input_data)
-        tool_name = tool_call.get("name", "unknown")
-        tool_input = tool_call.get("input", {})
-        
+        tool_name = tool_call.get("tool_name", "unknown")
+        tool_input = tool_call.get("tool_input", {})
+
         # Request approval
         approved = request_approval(tool_name, tool_input)
-        
-        # Return result
-        sys.exit(0 if approved else 1)
-        
+
+        # Return PermissionRequest decision as JSON
+        result = {
+            "hookSpecificOutput": {
+                "hookEventName": "PermissionRequest",
+                "decision": {
+                    "behavior": "allow" if approved else "deny"
+                }
+            }
+        }
+        print(json.dumps(result))
+        sys.exit(0)
+
     except json.JSONDecodeError as e:
         print(f"Invalid JSON input: {e}", file=sys.stderr)
         sys.exit(1)
