@@ -34,11 +34,18 @@ struct MenuBarView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                Text("Pending Requests")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
+                HStack {
+                    Text("Pending Requests")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(coordinator.statusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
 
                 ForEach(coordinator.activeRequests) { request in
                     RequestRow(request: request)
@@ -49,12 +56,19 @@ struct MenuBarView: View {
 
             // ── Footer Buttons ───────────────────────────────────────
             HStack {
-                Button("Settings") {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                    NSApp.activate(ignoringOtherApps: true)
+                if #available(macOS 14.0, *) {
+                    SettingsLink {
+                        Text("Settings")
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                } else {
+                    Button("Settings") {
+                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
                 }
-                .buttonStyle(.plain)
-                .font(.caption)
 
                 Spacer()
 
@@ -74,27 +88,43 @@ struct MenuBarView: View {
 
 private struct RequestRow: View {
     let request: ApprovalRequest
+    @EnvironmentObject var coordinator: ApprovalCoordinator
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: toolIcon(request.toolName))
-                .foregroundStyle(.orange)
-                .frame(width: 16)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: toolIcon(request.toolName))
+                    .foregroundStyle(.orange)
+                    .frame(width: 16)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(request.toolName)
-                    .font(.caption.bold())
-                Text(request.notificationBody)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(request.toolName)
+                        .font(.caption.bold())
+                    Text(request.notificationBody)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
             }
 
-            Spacer()
+            HStack(spacing: 6) {
+                Button("Approve") {
+                    coordinator.menuBarDecide(requestID: request.id, approve: true)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .tint(.green)
 
-            ProgressView()
-                .scaleEffect(0.6)
-                .frame(width: 16, height: 16)
+                Button("Deny") {
+                    coordinator.menuBarDecide(requestID: request.id, approve: false)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .tint(.red)
+            }
+            .padding(.leading, 24)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -153,22 +183,23 @@ struct SettingsView: View {
 
             Section("Status") {
                 LabeledContent("Socket") {
-                    Text(Config.socketPath)
-                        .font(.caption.monospaced())
-                        .textSelection(.enabled)
-                }
-                LabeledContent("CloudKit container") {
-                    Text(Config.cloudKitContainerID)
-                        .font(.caption.monospaced())
-                        .textSelection(.enabled)
-                }
-                LabeledContent("Connection") {
                     HStack(spacing: 4) {
                         Circle()
                             .fill(coordinator.isConnected ? Color.green : Color.red)
                             .frame(width: 8, height: 8)
-                        Text(coordinator.isConnected ? "Active" : "Offline")
-                            .font(.caption)
+                        Text(Config.socketPath)
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                    }
+                }
+                LabeledContent("CloudKit") {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(coordinator.cloudKitAvailable ? Color.green : Color.red)
+                            .frame(width: 8, height: 8)
+                        Text(Config.cloudKitContainerID)
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
                     }
                 }
             }

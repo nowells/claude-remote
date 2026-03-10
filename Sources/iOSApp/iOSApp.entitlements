@@ -10,7 +10,7 @@
     <key>com.apple.developer.icloud-container-identifiers</key>
     <array>
         <!-- Replace with your actual container ID (must match Mac app) -->
-        <string>iCloud.com.yourname.clauderemote</string>
+        <string>iCloud.com.claude-remote.app</string>
     </array>
 
     <!-- Push Notifications (required for CloudKit subscriptions to work) -->

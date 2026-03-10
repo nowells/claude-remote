@@ -1,9 +1,8 @@
 import Foundation
-import IOKit
 import CoreGraphics
 
 /// Determines whether the user is physically present at their Mac.
-/// Combines system idle time (IOKit HIDIdleTime) with screen-lock state (CoreGraphics session).
+/// Combines system idle time (CoreGraphics event source) with screen-lock state (CoreGraphics session).
 final class PresenceDetector {
 
     // MARK: - Public API
@@ -17,25 +16,16 @@ final class PresenceDetector {
 
     // MARK: - Idle Time
 
-    /// Returns the number of seconds since the last HID (keyboard/mouse) event.
+    /// Returns the number of seconds since the last keyboard or mouse event.
+    /// Uses CoreGraphics event source, which is sandbox-safe.
     func idleTimeSeconds() -> TimeInterval {
-        var iter: io_iterator_t = 0
-        let matchingDict = IOServiceMatching("IOHIDSystem")
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, &iter) == KERN_SUCCESS else {
-            return 0
-        }
-        defer { IOObjectRelease(iter) }
-
-        let entry = IOIteratorNext(iter)
-        guard entry != IO_OBJECT_NULL else { return 0 }
-        defer { IOObjectRelease(entry) }
-
-        var propsRef: Unmanaged<CFMutableDictionary>?
-        guard IORegistryEntryCreateCFProperties(entry, &propsRef, kCFAllocatorDefault, 0) == KERN_SUCCESS,
-              let props = propsRef?.takeRetainedValue() as? [String: Any],
-              let idleNs = props["HIDIdleTime"] as? Int64 else { return 0 }
-
-        return TimeInterval(idleNs) / 1_000_000_000.0
+        let eventTypes: [CGEventType] = [
+            .mouseMoved, .leftMouseDown, .rightMouseDown,
+            .keyDown, .scrollWheel, .tabletPointer
+        ]
+        return eventTypes
+            .map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }
+            .min() ?? 0
     }
 
     // MARK: - Screen Lock

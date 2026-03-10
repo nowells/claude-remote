@@ -36,22 +36,42 @@ final class UnixSocketServer {
 
         let path = Config.socketPath
 
+        // Ensure parent directory exists
+        let parentDir = (path as NSString).deletingLastPathComponent
+        if !FileManager.default.fileExists(atPath: parentDir) {
+            try FileManager.default.createDirectory(atPath: parentDir, 
+                                                     withIntermediateDirectories: true)
+        }
+
         // Clean up any leftover socket file
-        unlink(path)
+        // Use FileManager to ensure proper cleanup
+        if FileManager.default.fileExists(atPath: path) {
+            do {
+                try FileManager.default.removeItem(atPath: path)
+            } catch {
+                // If removal fails, try with unlink as fallback
+                unlink(path)
+            }
+        }
 
         serverFD = socket(AF_UNIX, SOCK_STREAM, 0)
         guard serverFD >= 0 else {
             throw NSError(domain: "UnixSocket", code: Int(errno),
                           userInfo: [NSLocalizedDescriptionKey: "socket() failed: \(errno)"])
         }
+        
+        // Set socket option to allow reuse
+        var reuseAddr: Int32 = 1
+        setsockopt(serverFD, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, socklen_t(MemoryLayout<Int32>.size))
 
         // Bind — copy path into sun_path, then bind using a pointer to the whole struct
         var addr = sockaddr_un()
+        addr.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
         addr.sun_family = sa_family_t(AF_UNIX)
+        let sunPathSize = MemoryLayout.size(ofValue: addr.sun_path)
         withUnsafeMutablePointer(to: &addr.sun_path) { sunPathPtr in
-            sunPathPtr.withMemoryRebound(to: CChar.self,
-                                         capacity: MemoryLayout.size(ofValue: addr.sun_path)) { cStr in
-                _ = path.withCString { strncpy(cStr, $0, MemoryLayout.size(ofValue: addr.sun_path) - 1) }
+            sunPathPtr.withMemoryRebound(to: CChar.self, capacity: sunPathSize) { cStr in
+                _ = path.withCString { strncpy(cStr, $0, sunPathSize - 1) }
             }
         }
         let bindResult = withUnsafePointer(to: &addr) { addrPtr in
@@ -60,8 +80,22 @@ final class UnixSocketServer {
             }
         }
         guard bindResult == 0 else {
-            throw NSError(domain: "UnixSocket", code: Int(errno),
-                          userInfo: [NSLocalizedDescriptionKey: "bind() failed: \(errno)"])
+            let errorCode = errno
+            close(serverFD)
+            serverFD = -1
+            let errorMsg: String
+            switch errorCode {
+            case EACCES:
+                errorMsg = "Permission denied. Socket path: \(path)"
+            case EADDRINUSE:
+                errorMsg = "Address already in use. Socket path: \(path)"
+            case ENOENT:
+                errorMsg = "Parent directory does not exist. Socket path: \(path)"
+            default:
+                errorMsg = "bind() failed with errno \(errorCode). Socket path: \(path)"
+            }
+            throw NSError(domain: "UnixSocket", code: Int(errorCode),
+                          userInfo: [NSLocalizedDescriptionKey: errorMsg])
         }
 
         guard listen(serverFD, 16) == 0 else {
@@ -71,6 +105,16 @@ final class UnixSocketServer {
 
         // Set permissions so the hook script (same user) can connect
         chmod(path, 0o700)
+        
+        // Write socket path to discovery file for hook scripts
+        #if os(macOS)
+        do {
+            try path.write(toFile: Config.socketPathFile, atomically: true, encoding: .utf8)
+            chmod(Config.socketPathFile, 0o600)
+        } catch {
+            print("[UnixSocketServer] Warning: Failed to write socket path file: \(error)")
+        }
+        #endif
 
         queue.async { [weak self] in self?.acceptLoop() }
     }
@@ -131,21 +175,21 @@ final class UnixSocketServer {
 
         // Wait up to remoteResponseTimeoutSeconds + 10s buffer
         let deadline = DispatchTime.now() + Config.remoteResponseTimeoutSeconds + 10
-        semaphore.wait(timeout: deadline)
+        let waitResult = semaphore.wait(timeout: deadline)
 
-        if var data = responseData {
+        if waitResult == .timedOut || responseData == nil {
+            sendError(fd: fd, message: "timeout")
+        } else if var data = responseData {
             if data.last != 0x0a { data.append(0x0a) }
             data.withUnsafeBytes { ptr in
                 _ = write(fd, ptr.baseAddress, ptr.count)
             }
-        } else {
-            sendError(fd: fd, message: "timeout")
         }
     }
 
     private func sendError(fd: Int32, message: String) {
         let payload = #"{"error":"\#(message)"}"# + "\n"
-        payload.withCString { write(fd, $0, strlen($0)) }
+        _ = payload.withCString { write(fd, $0, strlen($0)) }
     }
 
     // MARK: - Teardown
@@ -156,6 +200,9 @@ final class UnixSocketServer {
             serverFD = -1
         }
         unlink(Config.socketPath)
+        #if os(macOS)
+        unlink(Config.socketPathFile)
+        #endif
     }
 
     deinit { stop() }

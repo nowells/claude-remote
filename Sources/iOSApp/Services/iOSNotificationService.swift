@@ -30,12 +30,12 @@ final class iOSNotificationService: NSObject {
         let approveAction = UNNotificationAction(
             identifier: ActionID.approve,
             title: "Approve ✓",
-            options: [.authorizationRequired]
+            options: [.authenticationRequired]
         )
         let denyAction = UNNotificationAction(
             identifier: ActionID.deny,
             title: "Deny ✗",
-            options: [.authorizationRequired, .destructive]
+            options: [.authenticationRequired, .destructive]
         )
         let category = UNNotificationCategory(
             identifier: CategoryID.approvalRequest,
@@ -46,9 +46,14 @@ final class iOSNotificationService: NSObject {
         UNUserNotificationCenter.current().setNotificationCategories([category])
     }
 
-    func requestAuthorization() async {
-        try? await UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound, .badge, .criticalAlert])
+    func requestAuthorization() async -> Bool {
+        do {
+            return try await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound, .badge, .criticalAlert])
+        } catch {
+            print("[iOSNotification] Authorization request failed: \(error)")
+            return false
+        }
     }
 
     // MARK: - Post Approval Notification
@@ -69,8 +74,13 @@ final class iOSNotificationService: NSObject {
             "toolName": request.toolName
         ]
         // Badge shows number of pending requests
-        let pending = await iOSCloudKitService.shared.fetchAllPending()
-        content.badge = NSNumber(value: pending.count)
+        do {
+            let pending = try await iOSCloudKitService.shared.fetchAllPending()
+            content.badge = NSNumber(value: pending.count)
+        } catch {
+            print("[iOSNotification] Failed to fetch pending count for badge: \(error)")
+            // Don't set badge if we can't fetch the count
+        }
 
         let notifRequest = UNNotificationRequest(
             identifier: "approval-\(request.id)",
@@ -136,8 +146,8 @@ extension iOSNotificationService: UNUserNotificationCenterDelegate {
                 self.dismissNotification(for: requestID)
 
                 // Update app badge
-                let remaining = await iOSCloudKitService.shared.fetchAllPending()
-                await UNUserNotificationCenter.current()
+                let remaining = try await iOSCloudKitService.shared.fetchAllPending()
+                try await UNUserNotificationCenter.current()
                     .setBadgeCount(remaining.count)
             } catch {
                 print("[iOSNotification] Failed to write response: \(error)")

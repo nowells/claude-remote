@@ -29,7 +29,7 @@ targets:
 
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.clauderemote
+        PRODUCT_BUNDLE_IDENTIFIER: com.claude-remote.app
         PRODUCT_NAME: ClaudeRemote
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "13.0"
@@ -48,6 +48,8 @@ targets:
 
         # System frameworks (auto-linked via import, but explicit for clarity)
         OTHER_LDFLAGS: "-framework IOKit -framework CoreGraphics"
+
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
         DEBUG_INFORMATION_FORMAT: dwarf
 
@@ -71,7 +73,7 @@ targets:
 
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.clauderemoteios
+        PRODUCT_BUNDLE_IDENTIFIER: com.claude-remote.appios
         PRODUCT_NAME: ClaudeRemote
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "16.0"
@@ -87,6 +89,8 @@ targets:
         CODE_SIGN_IDENTITY: ""
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGNING_ALLOWED: NO
+
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
         DEBUG_INFORMATION_FORMAT: dwarf
 

@@ -2,38 +2,21 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- iCloud / CloudKit -->
-    <key>com.apple.developer.icloud-services</key>
-    <array>
-        <string>CloudKit</string>
-    </array>
-    <key>com.apple.developer.icloud-container-identifiers</key>
-    <array>
-        <!-- Replace with your actual container ID -->
-        <string>iCloud.com.yourname.clauderemote</string>
-    </array>
-
-    <!-- App Sandbox (required for notarisation) -->
-    <key>com.apple.security.app-sandbox</key>
-    <true/>
-
-    <!-- Network access (for CloudKit) -->
-    <key>com.apple.security.network.client</key>
-    <true/>
-
-    <!-- User notifications -->
-    <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
-    <array>
-        <string>com.apple.notificationcenterui.server</string>
-    </array>
-
-    <!-- Hardened runtime — needed for osascript subprocess -->
-    <key>com.apple.security.automation.apple-events</key>
-    <true/>
-
-    <!--
-        IMPORTANT: The Unix socket lives in /tmp which is accessible within the
-        sandbox. No extra entitlement is needed for AF_UNIX sockets.
-    -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.com.claude-remote.app</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
+	<array>
+		<string>/tmp/</string>
+	</array>
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.notificationcenterui.server</string>
+	</array>
 </dict>
 </plist>
