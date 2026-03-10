@@ -11,29 +11,9 @@ final class iOSCloudKitService: ObservableObject {
 
     // CloudKit container identifier - should match your iCloud container
     private static let cloudKitContainerID = "iCloud.com.claude-remote.app"
-    
+
     private var container: CKContainer { CKContainer(identifier: Self.cloudKitContainerID) }
     private var db: CKDatabase { container.privateCloudDatabase }
-
-    /// Server change token — used to fetch only new/updated records incrementally.
-    private var changeToken: CKServerChangeToken? {
-        get {
-            guard let data = UserDefaults.standard.data(forKey: "ckChangeToken"),
-                  let token = try? NSKeyedUnarchiver.unarchivedObject(
-                      ofClass: CKServerChangeToken.self, from: data)
-            else { return nil }
-            return token
-        }
-        set {
-            if let token = newValue,
-               let data = try? NSKeyedArchiver.archivedData(
-                   withRootObject: token, requiringSecureCoding: true) {
-                UserDefaults.standard.set(data, forKey: "ckChangeToken")
-            } else {
-                UserDefaults.standard.removeObject(forKey: "ckChangeToken")
-            }
-        }
-    }
 
     /// IDs of requests we've already shown a notification for (to avoid duplicates).
     private var notifiedIDs: Set<String> {
@@ -48,7 +28,7 @@ final class iOSCloudKitService: ObservableObject {
     /// Create a CloudKit subscription so the system delivers a silent push
     /// whenever a new ApprovalRequest record appears in the private DB.
     func setupSubscriptionIfNeeded() async {
-        let subID = "pending-approvals-v1"
+        let subID = "pending-approvals-v2"
 
         // Check if subscription already exists
         do {
@@ -56,12 +36,9 @@ final class iOSCloudKitService: ObservableObject {
             return  // Already set up
         } catch { }
 
-        let predicate = NSPredicate(value: true)  // match all — status filtered in memory
-        let subscription = CKQuerySubscription(
-            recordType: ApprovalRequest.recordType,
-            predicate: predicate,
-            subscriptionID: subID,
-            options: [.firesOnRecordCreation]
+        let subscription = CKRecordZoneSubscription(
+            zoneID: ApprovalRequest.zoneID,
+            subscriptionID: subID
         )
 
         let info = CKSubscription.NotificationInfo()
@@ -70,6 +47,9 @@ final class iOSCloudKitService: ObservableObject {
 
         do {
             try await db.save(subscription)
+        } catch let ckError as CKError where ckError.code == .zoneNotFound {
+            // Zone doesn't exist yet — Mac hasn't published anything.
+            // Polling will still work; subscription will be created on next launch after first publish.
         } catch {
             print("[iOSCloudKit] Subscription setup failed: \(error)")
         }
@@ -79,7 +59,7 @@ final class iOSCloudKitService: ObservableObject {
 
     /// Fetch all pending records created in the last hour that haven't been shown yet.
     func fetchNewPendingRequests() async -> [ApprovalRequest] {
-        let requests = await fetchAllPending()
+        let requests = (try? await fetchAllPending()) ?? []
         let known = notifiedIDs
         let newRequests = requests.filter { !known.contains($0.id) }
         if !newRequests.isEmpty {
@@ -89,29 +69,69 @@ final class iOSCloudKitService: ObservableObject {
     }
 
     /// Fetch all pending requests (for display in the app UI).
-    /// Uses only the system `creationDate` field in the predicate (always queryable without
-    /// custom indexes), then filters by status in memory.
-    func fetchAllPending() async -> [ApprovalRequest] {
-        let oneHourAgo = Date().addingTimeInterval(-3600)
-        // `creationDate` is a CloudKit system field — no custom index needed.
-        let predicate = NSPredicate(format: "creationDate >= %@", oneHourAgo as CVarArg)
-        let query = CKQuery(recordType: ApprovalRequest.recordType, predicate: predicate)
-        query.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+    /// Uses `CKFetchRecordZoneChangesOperation` on a custom zone — this requires
+    /// zero CloudKit Dashboard index configuration (unlike CKQuery).
+    func fetchAllPending() async throws -> [ApprovalRequest] {
+        try await withCheckedThrowingContinuation { continuation in
+            let zoneID = ApprovalRequest.zoneID
+            let config = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+            // nil previousServerChangeToken → fetch all records from scratch
 
-        guard let (results, _) = try? await db.records(matching: query) else { return [] }
-        return results
-            .compactMap { (_, result) -> ApprovalRequest? in
-                guard let record = try? result.get() else { return nil }
-                return ApprovalRequest(cloudKitRecord: record)
+            let operation = CKFetchRecordZoneChangesOperation(
+                recordZoneIDs: [zoneID],
+                configurationsByRecordZoneID: [zoneID: config]
+            )
+            operation.fetchAllChanges = true
+
+            var fetchedRecords: [CKRecord] = []
+            var zoneError: Error?
+
+            operation.recordWasChangedBlock = { _, result in
+                if let record = try? result.get() {
+                    fetchedRecords.append(record)
+                }
             }
-            .filter { $0.status == .pending }
+
+            operation.recordZoneFetchResultBlock = { _, result in
+                if case .failure(let error) = result {
+                    zoneError = error
+                }
+            }
+
+            operation.fetchRecordZoneChangesResultBlock = { result in
+                // Surface the zone-level error (e.g. zoneNotFound) if present
+                let effectiveError: Error?
+                if case .failure(let err) = result { effectiveError = err }
+                else { effectiveError = zoneError }
+
+                if let error = effectiveError {
+                    // Zone doesn't exist yet (Mac hasn't published anything) → empty list
+                    if let ckErr = error as? CKError,
+                       ckErr.code == .zoneNotFound || ckErr.code == .userDeletedZone {
+                        continuation.resume(returning: [])
+                    } else {
+                        continuation.resume(throwing: error)
+                    }
+                    return
+                }
+
+                let oneHourAgo = Date().addingTimeInterval(-3600)
+                let pending = fetchedRecords
+                    .compactMap { ApprovalRequest(cloudKitRecord: $0) }
+                    .filter { $0.status == .pending && $0.createdAt >= oneHourAgo }
+                    .sorted { $0.createdAt > $1.createdAt }
+                continuation.resume(returning: pending)
+            }
+
+            db.add(operation)
+        }
     }
 
     // MARK: - Respond
 
     /// Write the user's decision back to the CloudKit record so the Mac app can see it.
     func respond(to requestID: String, decision: ApprovalRequest.Status) async throws {
-        let recordID = CKRecord.ID(recordName: requestID)
+        let recordID = CKRecord.ID(recordName: requestID, zoneID: ApprovalRequest.zoneID)
         let record = try await db.record(for: recordID)
         record["status"]      = decision.rawValue as CKRecordValue
         record["respondedAt"] = Date() as CKRecordValue

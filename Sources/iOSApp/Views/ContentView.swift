@@ -6,8 +6,10 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if store.isLoading && store.pendingRequests.isEmpty {
+                if !store.hasLoaded {
                     ProgressView("Loading…")
+                } else if let error = store.errorMessage, store.pendingRequests.isEmpty {
+                    ErrorStateView(message: error) { Task { await store.refresh() } }
                 } else if store.pendingRequests.isEmpty {
                     EmptyStateView()
                 } else {
@@ -17,24 +19,19 @@ struct ContentView: View {
             .navigationTitle("Approvals")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        Task { await store.refresh() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
+                    if store.isLoading {
+                        ProgressView()
+                    } else {
+                        Button {
+                            Task { await store.refresh() }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
                     }
-                    .disabled(store.isLoading)
                 }
             }
             .refreshable {
                 await store.refresh()
-            }
-            .alert("Error", isPresented: .init(
-                get: { store.errorMessage != nil },
-                set: { if !$0 { store.errorMessage = nil } }
-            )) {
-                Button("OK", role: .cancel) { store.errorMessage = nil }
-            } message: {
-                Text(store.errorMessage ?? "")
             }
         }
     }
@@ -89,6 +86,30 @@ struct RequestSummaryRow: View {
         case "edit":     return "square.and.pencil"
         case "computer": return "desktopcomputer"
         default:         return "wrench.and.screwdriver"
+        }
+    }
+}
+
+// MARK: - Error State
+
+private struct ErrorStateView: View {
+    let message: String
+    let retry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.icloud")
+                .font(.system(size: 60))
+                .foregroundStyle(.red)
+            Text("Cannot Connect to iCloud")
+                .font(.title2.bold())
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button("Try Again", action: retry)
+                .buttonStyle(.borderedProminent)
         }
     }
 }

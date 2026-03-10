@@ -88,27 +88,43 @@ struct MenuBarView: View {
 
 private struct RequestRow: View {
     let request: ApprovalRequest
+    @EnvironmentObject var coordinator: ApprovalCoordinator
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: toolIcon(request.toolName))
-                .foregroundStyle(.orange)
-                .frame(width: 16)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: toolIcon(request.toolName))
+                    .foregroundStyle(.orange)
+                    .frame(width: 16)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(request.toolName)
-                    .font(.caption.bold())
-                Text(request.notificationBody)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(request.toolName)
+                        .font(.caption.bold())
+                    Text(request.notificationBody)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
             }
 
-            Spacer()
+            HStack(spacing: 6) {
+                Button("Approve") {
+                    coordinator.menuBarDecide(requestID: request.id, approve: true)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .tint(.green)
 
-            ProgressView()
-                .scaleEffect(0.6)
-                .frame(width: 16, height: 16)
+                Button("Deny") {
+                    coordinator.menuBarDecide(requestID: request.id, approve: false)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .tint(.red)
+            }
+            .padding(.leading, 24)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)

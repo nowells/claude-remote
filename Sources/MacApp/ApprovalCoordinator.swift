@@ -27,6 +27,12 @@ final class ApprovalCoordinator: ObservableObject {
     private let cloudKit      = MacCloudKitService.shared
     private let notifications = MacNotificationService.shared
 
+    // MARK: - Menu-bar overrides
+
+    /// Pending continuations keyed by request ID.
+    /// Resumed when the user taps Approve/Deny in the menu-bar popover.
+    private var pendingOverrides: [String: CheckedContinuation<String, Never>] = [:]
+
     // MARK: - Lifecycle
 
     init() {
@@ -54,39 +60,89 @@ final class ApprovalCoordinator: ObservableObject {
         cloudKitAvailable = await cloudKit.checkAccountStatus()
     }
 
+    // MARK: - Menu-bar decision API
+
+    /// Called when the user taps Approve/Deny for a request in the menu-bar popover.
+    func menuBarDecide(requestID: String, approve: Bool) {
+        pendingOverrides.removeValue(forKey: requestID)?
+            .resume(returning: approve ? "approve" : "deny")
+    }
+
     // MARK: - Core Handler
 
     /// Called for every incoming request from the Python hook script.
     /// Returns the decision that will be forwarded back over the socket.
     private func handle(_ request: ApprovalRequest) async -> UnixSocketServer.Response {
-        await MainActor.run {
-            activeRequests.append(request)
-            statusMessage = "Pending: \(request.toolName)"
-        }
-        defer {
-            Task { @MainActor in
-                activeRequests.removeAll { $0.id == request.id }
-                if activeRequests.isEmpty { statusMessage = "Idle" }
+        activeRequests.append(request)
+        statusMessage = "Pending: \(request.toolName)"
+
+        // Race the normal approval flow against a direct menu-bar decision.
+        // Whichever resolves first wins; the other is cancelled/cleaned up.
+        let decision = await withTaskGroup(of: String.self) { group in
+
+            // Normal flow: local dialog → (on timeout) → CloudKit remote path
+            group.addTask { @MainActor in
+                await self.normalFlow(for: request)
             }
+
+            // Menu-bar override: suspends until the user taps Approve/Deny in the popover
+            group.addTask { @MainActor in
+                await withTaskCancellationHandler(
+                    operation: {
+                        await withCheckedContinuation { cont in
+                            self.pendingOverrides[request.id] = cont
+                        }
+                    },
+                    onCancel: {
+                        // Resume with a sentinel so the continuation isn't leaked.
+                        // The result is discarded since the task group has already returned.
+                        Task { @MainActor in
+                            self.pendingOverrides.removeValue(forKey: request.id)?
+                                .resume(returning: "__cancelled__")
+                        }
+                    }
+                )
+            }
+
+            let first = await group.next()!
+            group.cancelAll()
+            return first
         }
 
+        // If normal flow won, clean up any un-consumed override continuation.
+        pendingOverrides.removeValue(forKey: request.id)?
+            .resume(returning: "__cancelled__")
+
+        activeRequests.removeAll { $0.id == request.id }
+        if activeRequests.isEmpty { statusMessage = "Idle" }
+
+        switch decision {
+        case "approve": return .init(id: request.id, decision: "allow")
+        case "deny":    return .init(id: request.id, decision: "deny")
+        default:        return .init(id: request.id, decision: "deny")
+        }
+    }
+
+    // MARK: - Normal flow (dialog → CloudKit)
+
+    private func normalFlow(for request: ApprovalRequest) async -> String {
         let idleSeconds = presence.idleTimeSeconds()
         let atDesk = presence.isAtDesk()
         log.info("handle: tool=\(request.toolName) idle=\(idleSeconds, format: .fixed(precision: 1))s atDesk=\(atDesk)")
 
         if atDesk {
             // ── Local path: show native dialog (blocks until user responds or times out) ──
-            await MainActor.run { statusMessage = "Local dialog shown (idle \(Int(idleSeconds))s)" }
+            statusMessage = "Local dialog shown (idle \(Int(idleSeconds))s)"
             log.info("handle: showing local dialog")
             let result = await showLocalDialog(for: request)
             log.info("handle: local dialog result=\(result)")
             switch result {
-            case "approve": return .init(id: request.id, decision: "allow")
-            case "deny":    return .init(id: request.id, decision: "deny")
+            case "approve": return "approve"
+            case "deny":    return "deny"
             default: break  // "timeout" → fall through to remote path
             }
         } else {
-            await MainActor.run { statusMessage = "Away (idle \(Int(idleSeconds))s) → sending to iPhone…" }
+            statusMessage = "Away (idle \(Int(idleSeconds))s) → sending to iPhone…"
         }
 
         // ── Remote path: publish to CloudKit, poll until iOS responds ──
@@ -94,44 +150,55 @@ final class ApprovalCoordinator: ObservableObject {
         do {
             try await cloudKit.publishRequest(request)
             log.info("handle: published to CloudKit, polling…")
-            await MainActor.run { statusMessage = "Waiting for iPhone response…" }
+            statusMessage = "Waiting for iPhone response…"
             let responded = try await cloudKit.pollForResponse(
                 requestID: request.id,
                 timeout: Config.remoteResponseTimeoutSeconds
             )
-            let decision = responded.status == .approved ? "allow" : "deny"
+            let decision = responded.status == .approved ? "approve" : "deny"
             log.info("handle: iOS responded decision=\(decision)")
-            return .init(id: request.id, decision: decision)
+            return decision
         } catch {
             log.error("handle: CloudKit error — \(error)")
-            await MainActor.run { statusMessage = "CloudKit error: \(error.localizedDescription)" }
+            statusMessage = "CloudKit error: \(error.localizedDescription)"
             // Timeout or CloudKit error → deny by default to avoid silent auto-approval
-            return .init(id: request.id, decision: "deny")
+            return "deny"
         }
     }
 
     // MARK: - Local dialog
 
-    @MainActor
     private func showLocalDialog(for request: ApprovalRequest) async -> String {
-        let alert = NSAlert()
-        alert.messageText = "Claude Code Permission Request"
-        alert.informativeText = "Tool: \(request.toolName)\n\n\(request.notificationBody)"
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Approve")
-        alert.addButton(withTitle: "Deny")
+        // Bridge blocking runModal() into async/await via a continuation.
+        // Must run on the main thread but outside the Swift concurrency executor
+        // so the modal run loop can process events normally.
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.messageText = "Claude Code Permission Request"
+                alert.informativeText = "Tool: \(request.toolName)\n\n\(request.notificationBody)"
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Approve")
+                alert.addButton(withTitle: "Deny")
 
-        NSApp.activate(ignoringOtherApps: true)
+                NSApp.activate(ignoringOtherApps: true)
 
-        let timer = Timer.scheduledTimer(withTimeInterval: Config.localDialogTimeoutSeconds, repeats: false) { _ in
-            NSApp.stopModal(withCode: .cancel)
-        }
-        defer { timer.invalidate() }
+                // Timer must be added to .modalPanel mode — that is the mode
+                // NSAlert.runModal() uses, and timers in .default mode don't fire there.
+                let timer = Timer(timeInterval: Config.localDialogTimeoutSeconds, repeats: false) { _ in
+                    NSApp.stopModal(withCode: .cancel)
+                }
+                RunLoop.main.add(timer, forMode: .modalPanel)
 
-        switch alert.runModal() {
-        case .alertFirstButtonReturn: return "approve"
-        case .alertSecondButtonReturn: return "deny"
-        default: return "timeout"
+                let response = alert.runModal()
+                timer.invalidate()
+
+                switch response {
+                case .alertFirstButtonReturn: continuation.resume(returning: "approve")
+                case .alertSecondButtonReturn: continuation.resume(returning: "deny")
+                default:                      continuation.resume(returning: "timeout")
+                }
+            }
         }
     }
 }

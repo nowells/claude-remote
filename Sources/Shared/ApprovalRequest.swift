@@ -72,11 +72,19 @@ public struct ApprovalRequest: Identifiable, Codable, Sendable {
 extension ApprovalRequest {
     public static let recordType = "ApprovalRequest"
 
+    /// Custom zone used for all ApprovalRequest records.
+    /// Using a custom zone enables `CKFetchRecordZoneChangesOperation`, which
+    /// requires no custom CloudKit Dashboard index configuration.
+    public static let zoneID = CKRecordZone.ID(
+        zoneName: "ApprovalRequests",
+        ownerName: CKCurrentUserDefaultName
+    )
+
     /// Build a CKRecord from this request (used by Mac app when publishing).
     public var cloudKitRecord: CKRecord {
         let record = CKRecord(
             recordType: Self.recordType,
-            recordID: CKRecord.ID(recordName: id)
+            recordID: CKRecord.ID(recordName: id, zoneID: Self.zoneID)
         )
         record["toolName"]     = toolName     as CKRecordValue
         record["toolInput"]    = toolInput    as CKRecordValue
