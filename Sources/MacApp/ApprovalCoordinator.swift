@@ -67,23 +67,26 @@ final class ApprovalCoordinator: ObservableObject {
             }
         }
 
+        let idleSeconds = presence.idleTimeSeconds()
         let atDesk = presence.isAtDesk()
 
         if atDesk {
             // ── Local path: show native dialog (blocks until user responds or times out) ──
+            await MainActor.run { statusMessage = "Local dialog shown (idle \(Int(idleSeconds))s)" }
             let result = await showLocalDialog(for: request)
             switch result {
             case "approve": return .init(id: request.id, decision: "allow")
             case "deny":    return .init(id: request.id, decision: "deny")
             default: break  // "timeout" → fall through to remote path
             }
+        } else {
+            await MainActor.run { statusMessage = "Away (idle \(Int(idleSeconds))s) → sending to iPhone…" }
         }
 
         // ── Remote path: publish to CloudKit, poll until iOS responds ──
-        await MainActor.run { statusMessage = "Waiting for iOS response…" }
-
         do {
             try await cloudKit.publishRequest(request)
+            await MainActor.run { statusMessage = "Waiting for iPhone response…" }
             let responded = try await cloudKit.pollForResponse(
                 requestID: request.id,
                 timeout: Config.remoteResponseTimeoutSeconds
@@ -91,6 +94,7 @@ final class ApprovalCoordinator: ObservableObject {
             let decision = responded.status == .approved ? "allow" : "deny"
             return .init(id: request.id, decision: decision)
         } catch {
+            await MainActor.run { statusMessage = "CloudKit error: \(error.localizedDescription)" }
             // Timeout or CloudKit error → deny by default to avoid silent auto-approval
             return .init(id: request.id, decision: "deny")
         }

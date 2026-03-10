@@ -34,11 +34,18 @@ struct MenuBarView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                Text("Pending Requests")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
+                HStack {
+                    Text("Pending Requests")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(coordinator.statusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
 
                 ForEach(coordinator.activeRequests) { request in
                     RequestRow(request: request)

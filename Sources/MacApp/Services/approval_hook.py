@@ -46,7 +46,7 @@ def request_approval(tool_name, tool_input):
     """Connect to Mac app and request approval.
 
     Returns True/False for allow/deny.
-    Raises FileNotFoundError if the Mac app is not running.
+    Raises FileNotFoundError or ConnectionRefusedError if the Mac app is not running.
     """
     socket_path = get_socket_path()  # raises FileNotFoundError if app not running
 
@@ -86,6 +86,8 @@ def request_approval(tool_name, tool_input):
     except socket.timeout:
         print("Approval request timed out", file=sys.stderr)
         return False
+    except ConnectionRefusedError:
+        raise  # app not running — let caller opt out
     except Exception as e:
         print(f"Approval request failed: {e}", file=sys.stderr)
         return False
@@ -102,7 +104,7 @@ if __name__ == "__main__":
         # Request approval
         try:
             approved = request_approval(tool_name, tool_input)
-        except FileNotFoundError:
+        except (FileNotFoundError, ConnectionRefusedError):
             # App not running — opt out and let Claude's default permission system decide
             sys.exit(0)
 
