@@ -9,7 +9,10 @@ final class iOSCloudKitService: ObservableObject {
 
     static let shared = iOSCloudKitService()
 
-    private var container: CKContainer { CKContainer(identifier: Config.cloudKitContainerID) }
+    // CloudKit container identifier - should match your iCloud container
+    private static let cloudKitContainerID = "iCloud.com.claude-remote.app"
+    
+    private var container: CKContainer { CKContainer(identifier: Self.cloudKitContainerID) }
     private var db: CKDatabase { container.privateCloudDatabase }
 
     /// Server change token — used to fetch only new/updated records incrementally.

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2CFDA1D92F5F9A1900A9728C /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000013 /* Config.swift */; };
 		AA0000000000000000000040 /* ApprovalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000010 /* ApprovalRequest.swift */; };
 		AA0000000000000000000041 /* ClaudeRemoteMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000011 /* ClaudeRemoteMacApp.swift */; };
 		AA0000000000000000000042 /* ApprovalCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000012 /* ApprovalCoordinator.swift */; };
@@ -311,6 +312,7 @@
 				AA0000000000000000000052 /* iOSApprovalStore.swift in Sources */,
 				AA0000000000000000000053 /* iOSCloudKitService.swift in Sources */,
 				AA0000000000000000000054 /* iOSNotificationService.swift in Sources */,
+				2CFDA1D92F5F9A1900A9728C /* Config.swift in Sources */,
 				AA0000000000000000000055 /* ContentView.swift in Sources */,
 				AA0000000000000000000056 /* ApprovalDetailView.swift in Sources */,
 			);

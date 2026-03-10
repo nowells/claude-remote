@@ -9,8 +9,12 @@ enum Config {
 
     /// Unix socket path for IPC between the Python hook script and this Mac app.
     static let socketPath = {
+        #if os(macOS)
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         return homeDir.appendingPathComponent(".claude-remote.sock").path
+        #else
+        return ""
+        #endif
     }()
 
     /// Seconds of user inactivity before the Mac is considered "away".
