@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		2CFDA1D92F5F9A1900A9728C /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000013 /* Config.swift */; };
+		2CFDA1DB2F5FAF2D00A9728C /* approval_hook.py in Resources */ = {isa = PBXBuildFile; fileRef = 2CFDA1DA2F5FAF2D00A9728C /* approval_hook.py */; };
+		2CFDA1DD2F5FAF3A00A9728C /* install_hook.sh in Resources */ = {isa = PBXBuildFile; fileRef = 2CFDA1DC2F5FAF3A00A9728C /* install_hook.sh */; };
+		2CFDA1DF2F5FAF5C00A9728C /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 2CFDA1DE2F5FAF5C00A9728C /* README.md */; };
 		AA0000000000000000000040 /* ApprovalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000010 /* ApprovalRequest.swift */; };
 		AA0000000000000000000041 /* ClaudeRemoteMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000011 /* ClaudeRemoteMacApp.swift */; };
 		AA0000000000000000000042 /* ApprovalCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000012 /* ApprovalCoordinator.swift */; };
@@ -27,6 +30,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2CFDA1DA2F5FAF2D00A9728C /* approval_hook.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = approval_hook.py; sourceTree = "<group>"; };
+		2CFDA1DC2F5FAF3A00A9728C /* install_hook.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install_hook.sh; sourceTree = "<group>"; };
+		2CFDA1DE2F5FAF5C00A9728C /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		AA0000000000000000000010 /* ApprovalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalRequest.swift; sourceTree = "<group>"; };
 		AA0000000000000000000011 /* ClaudeRemoteMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeRemoteMacApp.swift; sourceTree = "<group>"; };
 		AA0000000000000000000012 /* ApprovalCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalCoordinator.swift; sourceTree = "<group>"; };
@@ -129,6 +135,9 @@
 				AA0000000000000000000017 /* PresenceDetector.swift */,
 				AA0000000000000000000018 /* MacCloudKitService.swift */,
 				AA0000000000000000000019 /* MacNotificationService.swift */,
+				2CFDA1DA2F5FAF2D00A9728C /* approval_hook.py */,
+				2CFDA1DC2F5FAF3A00A9728C /* install_hook.sh */,
+				2CFDA1DE2F5FAF5C00A9728C /* README.md */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -274,6 +283,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2CFDA1DF2F5FAF5C00A9728C /* README.md in Resources */,
+				2CFDA1DB2F5FAF2D00A9728C /* approval_hook.py in Resources */,
+				2CFDA1DD2F5FAF3A00A9728C /* install_hook.sh in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

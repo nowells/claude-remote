@@ -105,6 +105,16 @@ final class UnixSocketServer {
 
         // Set permissions so the hook script (same user) can connect
         chmod(path, 0o700)
+        
+        // Write socket path to discovery file for hook scripts
+        #if os(macOS)
+        do {
+            try path.write(toFile: Config.socketPathFile, atomically: true, encoding: .utf8)
+            chmod(Config.socketPathFile, 0o600)
+        } catch {
+            print("[UnixSocketServer] Warning: Failed to write socket path file: \(error)")
+        }
+        #endif
 
         queue.async { [weak self] in self?.acceptLoop() }
     }
@@ -190,6 +200,9 @@ final class UnixSocketServer {
             serverFD = -1
         }
         unlink(Config.socketPath)
+        #if os(macOS)
+        unlink(Config.socketPathFile)
+        #endif
     }
 
     deinit { stop() }

@@ -8,10 +8,24 @@ enum Config {
     static let cloudKitContainerID = "iCloud.com.claude-remote.app"
 
     /// Unix socket path for IPC between the Python hook script and this Mac app.
+    /// Uses /tmp which is accessible from both sandboxed app and external scripts.
     static let socketPath = {
         #if os(macOS)
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        return homeDir.appendingPathComponent(".claude-remote.sock").path
+        // Use /tmp which is shared between sandbox and external processes
+        // Include username to avoid conflicts on shared systems
+        let username = NSUserName()
+        return "/tmp/claude-remote-\(username).sock"
+        #else
+        return ""
+        #endif
+    }()
+    
+    /// Path to a file that contains the actual socket path for discovery by hook scripts.
+    /// This is written by the Mac app at startup.
+    static let socketPathFile = {
+        #if os(macOS)
+        let username = NSUserName()
+        return "/tmp/claude-remote-\(username).path"
         #else
         return ""
         #endif
